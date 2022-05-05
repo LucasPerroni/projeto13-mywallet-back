@@ -47,7 +47,12 @@ export async function postSignIn(req, res) {
       token,
     })
 
-    res.status(200).send(token)
+    const data = {
+      token,
+      name: participant.name,
+    }
+
+    res.status(200).send(data)
   } catch (e) {
     res.sendStatus(500)
   }
