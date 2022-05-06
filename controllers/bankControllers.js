@@ -1,29 +1,12 @@
 import dayjs from "dayjs"
-import joi from "joi"
 import { ObjectId } from "mongodb"
 
 import db from "./../db.js"
 
 export async function getBank(req, res) {
-  const { authorization } = req.headers
+  const { user } = res.locals
 
   try {
-    // get user using token
-    const token = authorization?.replace("Bearer", "").trim()
-    if (!token) {
-      return res.sendStatus(401)
-    }
-
-    const session = await db.collection("sessions").findOne({ token })
-    if (!session) {
-      return res.sendStatus(401)
-    }
-
-    const user = await db.collection("participants").findOne({ _id: session.userId })
-    if (!user) {
-      return req.sendStatus(401)
-    }
-
     // get bank history
     const history = await db.collection("bank").find({ userId: user._id }).toArray()
     history.forEach((h) => delete h.userId) // delete userId before sending to front
@@ -35,44 +18,13 @@ export async function getBank(req, res) {
 }
 
 export async function postBank(req, res) {
-  const { authorization } = req.headers
-
-  // validate req.body
-  const entrySchema = joi.object({
-    type: joi.string().valid("entry", "payment").required(),
-    value: joi
-      .string()
-      .pattern(/^[1-9][0-9]*\.[0-9]{2}$/)
-      .required(),
-    description: joi.string().required(),
-  })
-  const validation = entrySchema.validate(req.body, { abortEarly: false })
-  if (validation.error) {
-    res.status(422).send(validation.error.details.map((e) => e.message))
-    return
-  }
+  const { user } = res.locals
 
   try {
-    // get user using token
-    const token = authorization?.replace("Bearer", "").trim()
-    if (!token) {
-      return res.sendStatus(401)
-    }
-
-    const session = await db.collection("sessions").findOne({ token })
-    if (!session) {
-      return res.sendStatus(401)
-    }
-
-    const user = await db.collection("participants").findOne({ _id: session.userId })
-    if (!user) {
-      return res.sendStatus(401)
-    }
-
     await db.collection("bank").insertOne({
       ...req.body,
       date: dayjs().format("DD/MM"),
-      userId: session.userId,
+      userId: user._id,
     })
 
     res.sendStatus(201)
@@ -82,26 +34,10 @@ export async function postBank(req, res) {
 }
 
 export async function deleteBank(req, res) {
-  const { authorization } = req.headers
+  const { user } = res.locals
   const { id } = req.params
 
   try {
-    // get user using token
-    const token = authorization?.replace("Bearer", "").trim()
-    if (!token) {
-      return res.sendStatus(401)
-    }
-
-    const session = await db.collection("sessions").findOne({ token })
-    if (!session) {
-      return res.sendStatus(401)
-    }
-
-    const user = await db.collection("participants").findOne({ _id: session.userId })
-    if (!user) {
-      return res.sendStatus(401)
-    }
-
     // validate if user id is the same of the transaction
     const transaction = await db.collection("bank").findOne({ _id: new ObjectId(id) })
     if (transaction.userId.toString() !== user._id.toString()) {
@@ -117,39 +53,10 @@ export async function deleteBank(req, res) {
 }
 
 export async function updateBank(req, res) {
-  const { authorization } = req.headers
+  const { user } = res.locals
   const { id } = req.params
 
-  // validate req.body format
-  const updateSchema = joi.object({
-    value: joi
-      .string()
-      .pattern(/^[1-9][0-9]*\.[0-9]{2}$/)
-      .required(),
-    description: joi.string().required(),
-  })
-  const validation = updateSchema.validate(req.body, { abortEarly: false })
-  if (validation.error) {
-    return res.status(422).send(validation.error.details.map((e) => e.message))
-  }
-
   try {
-    // get user using token
-    const token = authorization?.replace("Bearer", "").trim()
-    if (!token) {
-      return res.sendStatus(401)
-    }
-
-    const session = await db.collection("sessions").findOne({ token })
-    if (!session) {
-      return res.sendStatus(401)
-    }
-
-    const user = await db.collection("participants").findOne({ _id: session.userId })
-    if (!user) {
-      return res.sendStatus(401)
-    }
-
     // validate if user id is the same of the transaction
     const transaction = await db.collection("bank").findOne({ _id: new ObjectId(id) })
     if (transaction.userId.toString() !== user._id.toString()) {
