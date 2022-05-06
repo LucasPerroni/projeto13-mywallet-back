@@ -1,5 +1,6 @@
 import dayjs from "dayjs"
 import joi from "joi"
+import { ObjectId } from "mongodb"
 
 import db from "./../db.js"
 
@@ -75,6 +76,38 @@ export async function postBank(req, res) {
     })
 
     res.sendStatus(201)
+  } catch (e) {
+    res.sendStatus(500)
+  }
+}
+
+export async function deleteBank(req, res) {
+  const { authorization } = req.headers
+  const { id } = req.params
+
+  try {
+    const token = authorization?.replace("Bearer", "").trim()
+    if (!token) {
+      return res.sendStatus(401)
+    }
+
+    const session = await db.collection("sessions").findOne({ token })
+    if (!session) {
+      return res.sendStatus(401)
+    }
+
+    const user = await db.collection("participants").findOne({ _id: session.userId })
+    if (!user) {
+      return res.sendStatus(401)
+    }
+
+    const transaction = await db.collection("bank").findOne({ _id: new ObjectId(id) })
+    if (transaction.userId.toString() !== user._id.toString()) {
+      return res.sendStatus(401)
+    }
+
+    await db.collection("bank").deleteOne(transaction)
+    res.sendStatus(200)
   } catch (e) {
     res.sendStatus(500)
   }
