@@ -86,6 +86,7 @@ export async function deleteBank(req, res) {
   const { id } = req.params
 
   try {
+    // get user using token
     const token = authorization?.replace("Bearer", "").trim()
     if (!token) {
       return res.sendStatus(401)
@@ -101,12 +102,62 @@ export async function deleteBank(req, res) {
       return res.sendStatus(401)
     }
 
+    // validate if user id is the same of the transaction
     const transaction = await db.collection("bank").findOne({ _id: new ObjectId(id) })
     if (transaction.userId.toString() !== user._id.toString()) {
       return res.sendStatus(401)
     }
 
+    // delete transaction
     await db.collection("bank").deleteOne(transaction)
+    res.sendStatus(200)
+  } catch (e) {
+    res.sendStatus(500)
+  }
+}
+
+export async function updateBank(req, res) {
+  const { authorization } = req.headers
+  const { id } = req.params
+
+  // validate req.body format
+  const updateSchema = joi.object({
+    value: joi
+      .string()
+      .pattern(/^[1-9][0-9]*\.[0-9]{2}$/)
+      .required(),
+    description: joi.string().required(),
+  })
+  const validation = updateSchema.validate(req.body, { abortEarly: false })
+  if (validation.error) {
+    return res.status(422).send(validation.error.details.map((e) => e.message))
+  }
+
+  try {
+    // get user using token
+    const token = authorization?.replace("Bearer", "").trim()
+    if (!token) {
+      return res.sendStatus(401)
+    }
+
+    const session = await db.collection("sessions").findOne({ token })
+    if (!session) {
+      return res.sendStatus(401)
+    }
+
+    const user = await db.collection("participants").findOne({ _id: session.userId })
+    if (!user) {
+      return res.sendStatus(401)
+    }
+
+    // validate if user id is the same of the transaction
+    const transaction = await db.collection("bank").findOne({ _id: new ObjectId(id) })
+    if (transaction.userId.toString() !== user._id.toString()) {
+      return res.sendStatus(401)
+    }
+
+    // update transaction
+    await db.collection("bank").updateOne(transaction, { $set: req.body })
     res.sendStatus(200)
   } catch (e) {
     res.sendStatus(500)
